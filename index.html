@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f2430">
+<title>Anotador de Cursada</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f4f2ee; --card:#fff; --ink:#1f2430; --muted:#6b6f7a; --line:#e3e0da;
+  --accent:#1f2430; --danger:#c8402f; --r:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+.hidden{display:none!important}
+
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:14px 16px 10px;display:flex;align-items:center;gap:10px}
+header h1{font-size:22px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:none}
+.iconbtn:active{background:var(--line)}
+.search{margin:0 16px 12px;display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0 12px}
+.search input{flex:1;border:0;outline:0;background:none;padding:11px 0}
+main{padding:0 16px 110px;max-width:760px;margin:0 auto}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 2px 8px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.folder{position:relative;background:var(--card);border-radius:var(--r);padding:14px 14px 12px;min-height:96px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;border:1px solid var(--line);overflow:hidden}
+.folder::before{content:"";position:absolute;inset:0 0 auto 0;height:6px;background:var(--c)}
+.folder .name{font-weight:650;font-size:16px;word-break:break-word}
+.folder .meta{font-size:12px;color:var(--muted)}
+.folder .dot{width:30px;height:30px;border-radius:9px;background:var(--c);opacity:.18;position:absolute;right:10px;bottom:10px}
+.folder.add{border:2px dashed var(--line);background:transparent;align-items:center;justify-content:center;color:var(--muted);font-weight:600}
+
+.note{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.note .t{font-weight:650}
+.note .b{color:var(--muted);font-size:14px;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.note .m{font-size:12px;color:var(--muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tag{font-size:11px;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--c) 15%,white);color:var(--ink);font-weight:600}
+.due{font-size:11px;padding:2px 8px;border-radius:99px;background:#eee;font-weight:600}
+.due.soon{background:#ffe3b3}.due.late{background:#ffd0c9;color:#8a1f12}
+.empty{color:var(--muted);text-align:center;padding:28px 10px;font-size:15px}
+
+.fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));display:flex;gap:10px;z-index:6}
+.fab button{height:58px;border-radius:18px;background:var(--accent);color:#fff;font-weight:650;box-shadow:0 6px 18px rgba(0,0,0,.22);display:flex;align-items:center;gap:8px;padding:0 20px;font-size:16px}
+.fab .mic{width:58px;padding:0;justify-content:center;font-size:22px;background:#fff;color:var(--ink)}
+
+/* Editor */
+#editor{position:fixed;inset:0;background:var(--card);z-index:20;display:flex;flex-direction:column}
+#editor .top{display:flex;align-items:center;gap:6px;padding:10px 10px 6px;border-bottom:1px solid var(--line)}
+#editor .top select{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px;background:#fff}
+#editor .body{flex:1;overflow:auto;padding:14px 16px 120px}
+#eTitle{width:100%;border:0;outline:0;font-size:22px;font-weight:700;padding:4px 0}
+#eBody{width:100%;border:0;outline:0;resize:none;min-height:40vh;font-size:17px;line-height:1.5}
+.duerow{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin:6px 0 10px}
+.duerow input{border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff}
+.stamp{font-size:12px;color:var(--muted)}
+details.hist{margin-top:18px;border-top:1px solid var(--line);padding-top:10px}
+details.hist summary{font-weight:600;font-size:14px;cursor:pointer}
+details.hist ol{list-style:none;padding:0;margin:8px 0 0;font-size:13px;color:var(--muted)}
+details.hist li{padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px}
+details.hist li b{color:var(--ink);font-weight:600}
+#micBar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;z-index:21}
+#micBtn{width:62px;height:62px;border-radius:50%;background:var(--accent);color:#fff;font-size:26px;flex:none}
+#micBtn.on{background:var(--danger);animation:pulse 1.2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(200,64,47,.5)}100%{box-shadow:0 0 0 16px rgba(200,64,47,0)}}
+#micTxt{font-size:14px;color:var(--muted);flex:1}
+#micTxt i{color:var(--ink)}
+
+/* Modal */
+.backdrop{position:fixed;inset:0;background:rgba(20,22,30,.45);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:600px){.backdrop{align-items:center}.sheet{border-radius:22px}}
+.sheet h3{margin:0 0 12px;font-size:19px}
+.sheet input[type=text]{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:17px;outline:0}
+.swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:14px 0}
+.sw{aspect-ratio:1;border-radius:12px;background:var(--c);border:3px solid transparent}
+.sw.sel{border-color:var(--ink);box-shadow:inset 0 0 0 3px #fff}
+.row{display:flex;gap:10px;margin-top:8px}
+.btn{flex:1;padding:13px;border-radius:12px;font-weight:650;background:var(--line)}
+.btn.pri{background:var(--accent);color:#fff}
+.btn.del{background:#fde7e4;color:var(--danger)}
+.menu button{display:block;width:100%;text-align:left;padding:14px 6px;border-bottom:1px solid var(--line);font-size:17px}
+.menu button:last-child{border:0}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:40;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="iconbtn hidden" id="backBtn" aria-label="Volver">←</button>
+  <h1 id="hTitle">Mis materias</h1>
+  <button class="iconbtn hidden" id="folderMenuBtn" aria-label="Opciones de la carpeta">⋮</button>
+  <button class="iconbtn" id="appMenuBtn" aria-label="Menú">☰</button>
+</header>
+<div class="search"><input id="q" type="search" placeholder="Buscar en todas las notas…" autocomplete="off"></div>
+<main id="main"></main>
+
+<div class="fab">
+  <button class="mic" id="fabMic" aria-label="Nota por voz">🎤</button>
+  <button id="fabNew">＋ Nota</button>
+</div>
+
+<!-- Editor -->
+<section id="editor" class="hidden">
+  <div class="top">
+    <button class="iconbtn" id="eBack" aria-label="Guardar y volver">←</button>
+    <select id="eFolder" aria-label="Carpeta"></select>
+    <button class="iconbtn" id="eDel" aria-label="Borrar nota">🗑</button>
+  </div>
+  <div class="body">
+    <input id="eTitle" placeholder="Título (ej: TP 3 – Maqueta)">
+    <div class="duerow">📅 Entrega: <input type="date" id="eDue"> <button id="eDueClr" class="stamp">quitar</button></div>
+    <textarea id="eBody" placeholder="Escribí acá o tocá el micrófono para dictar…"></textarea>
+    <div class="stamp" id="eStamp"></div>
+    <details class="hist" id="eHistBox">
+      <summary>Historial de accesos</summary>
+      <ol id="eHist"></ol>
+    </details>
+  </div>
+  <div id="micBar">
+    <button id="micBtn" aria-label="Dictar">🎤</button>
+    <div id="micTxt">Tocá para dictar. Lo que digas se transcribe al texto.</div>
+  </div>
+</section>
+
+<div id="modal" class="backdrop hidden"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const KEY = 'anotador-cursada-v1';
+const COLORS = ['#e4572e','#f3a712','#e9c46a','#29a36a','#2a9d8f','#3a86ff','#5e60ce','#9b5de5','#f15bb5','#8d6e63','#607d8b','#1f2430'];
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const now = () => Date.now();
+
+const fmt = t => new Date(t).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const fmtShort = t => {
+  const d = new Date(t), today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  const y = new Date(today); y.setDate(today.getDate()-1);
+  const hm = d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  if (sameDay) return 'hoy ' + hm;
+  if (d.toDateString() === y.toDateString()) return 'ayer ' + hm;
+  return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) + ' ' + hm;
+};
+
+/* ---------- Datos ---------- */
+let db;
+function load(){
+  try { db = JSON.parse(localStorage.getItem(KEY)); } catch(e){ db = null; }
+  if (!db || !Array.isArray(db.folders)) {
+    const t = now();
+    db = { folders:[
+      {id:uid(), name:'Taller de Diseño', color:'#3a86ff', created:t},
+      {id:uid(), name:'Morfología', color:'#29a36a', created:t},
+      {id:uid(), name:'Tecnología', color:'#f3a712', created:t},
+    ], notes:[] };
+    save();
+  }
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch(e){ toast('⚠️ No se pudo guardar. Exportá una copia desde el menú ☰'); }
+}
+const folderById = id => db.folders.find(f => f.id === id);
+const notesIn = id => db.notes.filter(n => n.folderId === id);
+const lastTouch = n => n.log.length ? n.log[n.log.length-1].t : n.created;
+function logAccess(n, type){ n.log.push({t:now(), type}); if (n.log.length > 300) n.log.splice(0, n.log.length-300); }
+
+/* ---------- Navegación ---------- */
+let current = null; // folder id o null = inicio
+function go(folderId){ current = folderId; $('#q').value=''; render(); window.scrollTo(0,0); }
+
+function dueBadge(n){
+  if (!n.due) return '';
+  const d = new Date(n.due + 'T23:59');
+  const days = Math.ceil((d - new Date())/86400000);
+  const label = new Date(n.due+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
+  let cls = '', txt = 'Entrega ' + label;
+  if (days < 0) { cls='late'; txt = 'Venció ' + label; }
+  else if (days <= 3) { cls='soon'; txt = (days===0?'Entrega HOY':days===1?'Entrega mañana':'Entrega en '+days+' días'); }
+  return `<span class="due ${cls}">${txt}</span>`;
+}
+function noteCard(n, showFolder){
+  const f = folderById(n.folderId) || {color:'#999', name:'—'};
+  const body = n.body.trim().slice(0,200);
+  return `<button class="note" style="--c:${f.color}" data-note="${n.id}">
+    <div class="t">${esc(n.title || body.split('\n')[0].slice(0,60) || 'Sin título')}</div>
+    ${body ? `<div class="b">${esc(body)}</div>` : ''}
+    <div class="m">${showFolder ? `<span class="tag">${esc(f.name)}</span>` : ''}${dueBadge(n)}<span>Último acceso: ${fmtShort(lastTouch(n))}</span></div>
+  </button>`;
+}
+
+function render(){
+  const q = $('#q').value.trim().toLowerCase();
+  const main = $('#main');
+  $('#backBtn').classList.toggle('hidden', !current);
+  $('#folderMenuBtn').classList.toggle('hidden', !current);
+
+  if (q) {
+    const res = db.notes.filter(n => (n.title+' '+n.body).toLowerCase().includes(q)).sort((a,b)=>lastTouch(b)-lastTouch(a));
+    main.innerHTML = `<h2>${res.length} resultado${res.length===1?'':'s'}</h2>` + (res.map(n=>noteCard(n,true)).join('') || '<div class="empty">Nada encontrado.</div>');
+    return;
+  }
+
+  if (!current) {
+    $('#hTitle').textContent = 'Mis materias';
+    const folders = db.folders.map(f => {
+      const ns = notesIn(f.id);
+      const last = ns.length ? Math.max(...ns.map(lastTouch)) : null;
+      return `<button class="folder" style="--c:${f.color}" data-folder="${f.id}">
+        <div class="name">${esc(f.name)}</div>
+        <div class="meta">${ns.length} nota${ns.length===1?'':'s'}${last?'<br>'+fmtShort(last):''}</div>
+        <span class="dot"></span></button>`;
+    }).join('');
+    const upcoming = db.notes.filter(n => n.due && new Date(n.due+'T23:59') >= new Date()).sort((a,b)=>a.due.localeCompare(b.due)).slice(0,5);
+    const recent = [...db.notes].sort((a,b)=>lastTouch(b)-lastTouch(a)).slice(0,6);
+    main.innerHTML =
+      `<h2>Carpetas</h2><div class="grid">${folders}<button class="folder add" id="addFolder">＋ Nueva carpeta</button></div>` +
+      (upcoming.length ? `<h2>Próximas entregas</h2>${upcoming.map(n=>noteCard(n,true)).join('')}` : '') +
+      `<h2>Últimos movimientos</h2>` + (recent.map(n=>noteCard(n,true)).join('') || '<div class="empty">Todavía no hay notas. Tocá <b>＋ Nota</b> o el 🎤 para empezar.</div>');
+  } else {
+    const f = folderById(current);
+    if (!f) return go(null);
+    $('#hTitle').textContent = f.name;
+    const ns = notesIn(f.id).sort((a,b)=>lastTouch(b)-lastTouch(a));
+    main.innerHTML = `<div style="height:6px;border-radius:6px;background:${f.color};margin:2px 0 6px"></div>
+      <h2>${ns.length} nota${ns.length===1?'':'s'} · creada ${fmt(f.created)}</h2>` +
+      (ns.map(n=>noteCard(n,false)).join('') || '<div class="empty">Esta carpeta está vacía.<br>Agregá una nota con <b>＋ Nota</b>.</div>');
+  }
+}
+
+/* ---------- Modales ---------- */
+function openModal(html){ $('#sheet').innerHTML = html; $('#modal').classList.remove('hidden'); }
+function closeModal(){ $('#modal').classList.add('hidden'); }
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+function folderDialog(folder){
+  let color = folder ? folder.color : COLORS[db.folders.length % COLORS.length];
+  openModal(`<h3>${folder ? 'Editar carpeta' : 'Nueva carpeta'}</h3>
+    <input type="text" id="fName" placeholder="Nombre (ej: Historia del Diseño)" value="${esc(folder?.name||'')}" maxlength="60">
+    <div class="swatches">${COLORS.map(c=>`<button class="sw ${c===color?'sel':''}" style="--c:${c}" data-c="${c}" aria-label="Color ${c}"></button>`).join('')}</div>
+    <div class="row"><button class="btn" id="fCancel">Cancelar</button><button class="btn pri" id="fOk">${folder?'Guardar':'Crear'}</button></div>`);
+  const inp = $('#fName'); setTimeout(()=>inp.focus(), 50);
+  $('#sheet').querySelectorAll('.sw').forEach(b => b.onclick = () => {
+    color = b.dataset.c; $('#sheet').querySelectorAll('.sw').forEach(x=>x.classList.toggle('sel', x===b));
+  });
+  $('#fCancel').onclick = closeModal;
+  const ok = () => {
+    const name = inp.value.trim(); if (!name) { inp.focus(); return; }
+    if (folder) { folder.name = name; folder.color = color; }
+    else db.folders.push({id:uid(), name, color, created:now()});
+    save(); closeModal(); render(); toast(folder ? 'Carpeta actualizada' : 'Carpeta creada');
+  };
+  $('#fOk').onclick = ok; inp.onkeydown = e => { if (e.key==='Enter') ok(); };
+}
+
+function confirmDialog(text, okLabel, fn){
+  openModal(`<h3>${text}</h3><div class="row"><button class="btn" id="cNo">Cancelar</button><button class="btn del" id="cYes">${okLabel}</button></div>`);
+  $('#cNo').onclick = closeModal; $('#cYes').onclick = () => { closeModal(); fn(); };
+}
+
+function folderMenu(){
+  const f = folderById(current);
+  openModal(`<h3>${esc(f.name)}</h3><div class="menu">
+    <button id="mEdit">✏️ Cambiar nombre y color</button>
+    <button id="mDel" style="color:var(--danger)">🗑 Borrar carpeta</button></div>`);
+  $('#mEdit').onclick = () => folderDialog(f);
+  $('#mDel').onclick = () => {
+    const n = notesIn(f.id).length;
+    confirmDialog(`¿Borrar “${esc(f.name)}”${n?` y sus ${n} nota${n===1?'':'s'}`:''}? No se puede deshacer.`, 'Borrar', () => {
+      db.notes = db.notes.filter(x => x.folderId !== f.id);
+      db.folders = db.folders.filter(x => x.id !== f.id);
+      save(); go(null); toast('Carpeta borrada');
+    });
+  };
+}
+
+function appMenu(){
+  openModal(`<h3>Anotador de Cursada</h3><div class="menu">
+    <button id="aExp">💾 Exportar copia de seguridad</button>
+    <button id="aImp">📂 Importar copia de seguridad</button>
+    <button id="aAll">🕒 Ver todos los accesos</button></div>
+    <input type="file" id="aFile" accept=".json,application/json" class="hidden">`);
+  $('#aExp').onclick = () => {
+    const blob = new Blob([JSON.stringify(db,null,2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'anotador-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
+    closeModal(); toast('Copia descargada');
+  };
+  $('#aImp').onclick = () => $('#aFile').click();
+  $('#aFile').onchange = async e => {
+    try {
+      const data = JSON.parse(await e.target.files[0].text());
+      if (!Array.isArray(data.folders) || !Array.isArray(data.notes)) throw 0;
+      confirmDialog('¿Reemplazar todo con la copia importada?', 'Reemplazar', () => { db = data; save(); go(null); toast('Copia importada'); });
+    } catch(_) { toast('Archivo no válido'); }
+  };
+  $('#aAll').onclick = () => {
+    const all = [];
+    db.notes.forEach(n => n.log.forEach(l => all.push({...l, n})));
+    all.sort((a,b)=>b.t-a.t);
+    openModal(`<h3>Todos los accesos</h3><div style="max-height:60vh;overflow:auto"><ol style="list-style:none;padding:0;margin:0;font-size:14px">` +
+      (all.slice(0,200).map(x => { const f = folderById(x.n.folderId)||{color:'#999'};
+        return `<li style="padding:8px 0;border-bottom:1px solid var(--line);border-left:4px solid ${f.color};padding-left:8px"><b>${LOGTXT[x.type]||x.type}</b> · ${esc(x.n.title||'Sin título')}<br><span class="stamp">${fmt(x.t)}</span></li>`; }).join('') || '<li class="empty">Sin accesos todavía</li>') +
+      `</ol></div><div class="row"><button class="btn" id="cls">Cerrar</button></div>`);
+    $('#cls').onclick = closeModal;
+  };
+}
+
+/* ---------- Editor ---------- */
+const LOGTXT = {creada:'✨ Creada', abierta:'👁 Abierta', editada:'✏️ Modificada', movida:'📁 Movida', dictado:'🎤 Dictado'};
+let editing = null, dirty = false, saveTimer = null;
+
+function openEditor(note, {fresh=false, startMic=false}={}){
+  editing = note; dirty = false;
+  if (!fresh) logAccess(note, 'abierta');
+  save();
+  $('#eFolder').innerHTML = db.folders.map(f=>`<option value="${f.id}" ${f.id===note.folderId?'selected':''}>● ${esc(f.name)}</option>`).join('');
+  $('#eFolder').style.borderLeft = '6px solid ' + (folderById(note.folderId)?.color || '#999');
+  $('#eTitle').value = note.title; $('#eBody').value = note.body; $('#eDue').value = note.due || '';
+  renderHist();
+  $('#editor').classList.remove('hidden');
+  history.pushState({ed:1}, '');
+  autosize();
+  if (startMic) startDictation(); else if (fresh) setTimeout(()=>$('#eTitle').focus(), 60);
+}
+function renderHist(){
+  const n = editing;
+  $('#eStamp').textContent = `Creada: ${fmt(n.created)} · Última modificación: ${fmt(n.updated)}`;
+  $('#eHist').innerHTML = [...n.log].reverse().map(l=>`<li><b>${LOGTXT[l.type]||l.type}</b><span>${fmt(l.t)}</span></li>`).join('');
+}
+function markDirty(){
+  if (!editing) return;
+  editing.title = $('#eTitle').value; editing.body = $('#eBody').value; editing.due = $('#eDue').value || null;
+  if (!dirty) { dirty = true; logAccess(editing, 'editada'); }
+  editing.updated = now();
+  clearTimeout(saveTimer); saveTimer = setTimeout(()=>{ save(); renderHist(); }, 400);
+}
+function closeEditor(fromPop){
+  if (!editing) return;
+  stopDictation();
+  clearTimeout(saveTimer);
+  const n = editing;
+  if (!n.title.trim() && !n.body.trim() && !n.due) {
+    db.notes = db.notes.filter(x => x.id !== n.id);
+  }
+  save(); editing = null;
+  $('#editor').classList.add('hidden');
+  if (!fromPop) history.back();
+  render();
+}
+function autosize(){ const t = $('#eBody'); t.style.height='auto'; t.style.height = Math.max(t.scrollHeight, window.innerHeight*0.4) + 'px'; }
+
+function newNote(startMic){
+  if (!db.folders.length) { toast('Primero creá una carpeta'); folderDialog(); return; }
+  const t = now();
+  const n = {id:uid(), folderId: current || db.folders[0].id, title:'', body:'', due:null, created:t, updated:t, log:[{t, type:'creada'}]};
+  db.notes.push(n);
+  openEditor(n, {fresh:true, startMic});
+}
+
+$('#eTitle').addEventListener('input', markDirty);
+$('#eBody').addEventListener('input', () => { markDirty(); autosize(); });
+$('#eDue').addEventListener('change', markDirty);
+$('#eDueClr').onclick = () => { $('#eDue').value=''; markDirty(); };
+$('#eFolder').addEventListener('change', e => {
+  editing.folderId = e.target.value; logAccess(editing, 'movida'); editing.updated = now();
+  e.target.style.borderLeft = '6px solid ' + folderById(editing.folderId).color;
+  save(); renderHist(); toast('Nota movida a ' + folderById(editing.folderId).name);
+});
+$('#eBack').onclick = () => closeEditor(false);
+$('#eDel').onclick = () => confirmDialog('¿Borrar esta nota?', 'Borrar', () => {
+  const id = editing.id; editing.title=''; editing.body=''; editing.due=null;
+  db.notes = db.notes.filter(x=>x.id!==id); closeEditor(false); toast('Nota borrada');
+});
+window.addEventListener('popstate', () => {
+  if (!$('#modal').classList.contains('hidden')) closeModal();
+  if (editing) closeEditor(true);
+});
+
+/* ---------- Dictado (voz a texto) ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false, wantListen = false, dictLogged = false;
+
+function insertText(txt){
+  const ta = $('#eBody');
+  const v = ta.value;
+  const sep = v && !/\s$/.test(v) ? ' ' : '';
+  let t = txt.trim(); if (!t) return;
+  if (!v || /[.!?\n]\s*$/.test(v)) t = t.charAt(0).toUpperCase() + t.slice(1);
+  ta.value = v + sep + t;
+  markDirty(); autosize();
+  if (!dictLogged) { dictLogged = true; logAccess(editing, 'dictado'); }
+}
+function startDictation(){
+  if (!SR) { $('#micTxt').innerHTML = '⚠️ Este navegador no permite dictado. Usá <b>Google Chrome</b> en Android, o el micrófono del teclado.'; return; }
+  if (listening) return;
+  wantListen = true; dictLogged = false;
+  rec = new SR(); rec.lang = 'es-AR'; rec.continuous = true; rec.interimResults = true;
+  rec.onstart = () => { listening = true; $('#micBtn').classList.add('on'); $('#micTxt').innerHTML = '<b>Escuchando…</b> hablá tranquilo. Tocá de nuevo para terminar.'; };
+  rec.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) insertText(r[0].transcript); else interim += r[0].transcript;
+    }
+    $('#micTxt').innerHTML = interim ? '<i>' + esc(interim) + '</i>' : '<b>Escuchando…</b>';
+  };
+  rec.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { wantListen = false; $('#micTxt').innerHTML = '⚠️ Permiso de micrófono denegado. Activalo en los ajustes del navegador.'; }
+    else if (e.error === 'network') { wantListen = false; $('#micTxt').innerHTML = '⚠️ El dictado necesita conexión a internet.'; }
+  };
+  rec.onend = () => {
+    listening = false;
+    if (wantListen && editing) { try { rec.start(); return; } catch(_){} }
+    $('#micBtn').classList.remove('on');
+    if (!$('#micTxt').textContent.startsWith('⚠️')) $('#micTxt').textContent = 'Tocá para dictar. Lo que digas se transcribe al texto.';
+    if (editing) { save(); renderHist(); }
+  };
+  try { rec.start(); } catch(_){}
+}
+function stopDictation(){ wantListen = false; if (rec) try { rec.stop(); } catch(_){} }
+$('#micBtn').onclick = () => listening || wantListen ? stopDictation() : startDictation();
+
+/* ---------- Eventos generales ---------- */
+$('#main').addEventListener('click', e => {
+  const f = e.target.closest('[data-folder]'); if (f) return go(f.dataset.folder);
+  const n = e.target.closest('[data-note]'); if (n) return openEditor(db.notes.find(x=>x.id===n.dataset.note));
+  if (e.target.closest('#addFolder')) folderDialog();
+});
+$('#backBtn').onclick = () => go(null);
+$('#folderMenuBtn').onclick = folderMenu;
+$('#appMenuBtn').onclick = appMenu;
+$('#fabNew').onclick = () => newNote(false);
+$('#fabMic').onclick = () => newNote(true);
+$('#q').addEventListener('input', render);
+
+let tt; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2200); }
+
+load(); render();
+if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js').catch(()=>{}); } catch(_){} }
+})();
+</script>
+</body>
+</html>
