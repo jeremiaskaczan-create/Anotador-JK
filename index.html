@@ -126,6 +126,7 @@ details.hist li b{color:var(--ink);font-weight:600}
   <div id="micBar">
     <button id="micBtn" aria-label="Dictar">🎤</button>
     <div id="micTxt">Tocá para dictar. Lo que digas se transcribe al texto.</div>
+    <button class="iconbtn" id="micHelp" aria-label="Comandos de voz" style="border:1px solid var(--line);font-weight:700">?</button>
   </div>
 </section>
 
@@ -391,12 +392,47 @@ window.addEventListener('popstate', () => {
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, listening = false, wantListen = false, dictLogged = false;
 
+/* Comandos de voz -> signos. \u0002 = abrir comillas, \u0003 = cerrar comillas */
+const VOZ = [
+  [/\b(punto y aparte|nuevo p[aá]rrafo)\b/gi, '.\n\n'],
+  [/\b(nueva l[ií]nea|salto de l[ií]nea|otra l[ií]nea)\b/gi, '\n'],
+  [/\bpunto y coma\b/gi, ';'],
+  [/\bdos puntos\b/gi, ':'],
+  [/\bpuntos suspensivos\b/gi, '...'],
+  [/\b(punto y seguido|punto)\b/gi, '.'],
+  [/\bcoma\b/gi, ','],
+  [/\b(abrir|abre) par[eé]ntesis\b/gi, '('],
+  [/\b(cerrar|cierra) par[eé]ntesis\b/gi, ')'],
+  [/\b(abrir|abre) comillas\b/gi, '\u0002'],
+  [/\b(cerrar|cierra) comillas\b/gi, '\u0003'],
+  [/\b(abrir|abre) (pregunta|interrogaci[oó]n)\b/gi, '¿'],
+  [/\b(cerrar|cierra) (pregunta|interrogaci[oó]n)\b/gi, '?'],
+  [/\b(abrir|abre) exclamaci[oó]n\b/gi, '¡'],
+  [/\b(cerrar|cierra) exclamaci[oó]n\b/gi, '!'],
+  [/\bbarra\b/gi, '/'],
+  [/\bgui[oó]n\b/gi, '-'],
+  [/\barroba\b/gi, '@'],
+  [/\b(por ciento|porciento)\b/gi, '%'],
+];
+function voicePunct(t){
+  VOZ.forEach(([re, s]) => { t = t.replace(re, ' ' + s + ' '); });
+  t = t.replace(/[ \t]+([,.;:)?!%\u0003])/g, '$1')      // sin espacio antes de signos de cierre
+       .replace(/([(¿¡\u0002])[ \t]+/g, '$1')            // sin espacio después de signos de apertura
+       .replace(/[ \t]*([\/\-@])[ \t]*/g, '$1')           // barra, guion y arroba pegados
+       .replace(/[ \t]*\n[ \t]*/g, '\n')
+       .replace(/\.{4,}/g, '...').replace(/[ \t]{2,}/g, ' ');
+  // Mayúscula después de punto, pregunta, exclamación o salto de línea
+  t = t.replace(/([.?!]\s+|\n|¿|¡)([a-záéíóúñ])/g, (m, a, b) => a + b.toUpperCase());
+  return t.replace(/\u0002|\u0003/g, '"');
+}
+
 function insertText(txt){
   const ta = $('#eBody');
   const v = ta.value;
-  const sep = v && !/\s$/.test(v) ? ' ' : '';
-  let t = txt.trim(); if (!t) return;
-  if (!v || /[.!?\n]\s*$/.test(v)) t = t.charAt(0).toUpperCase() + t.slice(1);
+  let t = voicePunct(' ' + txt + ' ').replace(/^[ \t]+|[ \t]+$/g, ''); if (!t) return;
+  const glue = /^[,.;:)?!%\/\-\n]/.test(t) || /["(¿¡\/\-]$/.test(v) && !/[.,;:]\s*"$/.test(v);
+  const sep = v && !/\s$/.test(v) && !glue ? ' ' : '';
+  if (!v || /[.!?\n]\s*$/.test(v)) t = t.replace(/^([¿¡"(]*)([a-záéíóúñ])/, (m,a,b) => a + b.toUpperCase());
   ta.value = v + sep + t;
   markDirty(); autosize();
   if (!dictLogged) { dictLogged = true; logAccess(editing, 'dictado'); }
@@ -430,6 +466,16 @@ function startDictation(){
 }
 function stopDictation(){ wantListen = false; if (rec) try { rec.stop(); } catch(_){} }
 $('#micBtn').onclick = () => listening || wantListen ? stopDictation() : startDictation();
+$('#micHelp').onclick = () => {
+  const rows = [['coma',','],['punto','.'],['punto y coma',';'],['dos puntos',':'],['puntos suspensivos','...'],
+    ['abrir paréntesis / cerrar paréntesis','( )'],['abrir comillas / cerrar comillas','" "'],
+    ['abrir pregunta / cerrar pregunta','¿ ?'],['abrir exclamación / cerrar exclamación','¡ !'],
+    ['barra','/'],['guion','-'],['arroba','@'],['por ciento','%'],['nueva línea','↵'],['punto y aparte','. ↵↵']];
+  openModal(`<h3>Comandos de voz</h3><p class="stamp" style="margin:-6px 0 10px">Decí la palabra mientras dictás y se escribe el signo.</p>
+    <div style="max-height:55vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:15px">${rows.map(([a,b])=>`<tr style="border-bottom:1px solid var(--line)"><td style="padding:8px 0">“${a}”</td><td style="text-align:right;font-weight:700;font-size:18px">${esc(b)}</td></tr>`).join('')}</table></div>
+    <div class="row"><button class="btn pri" id="cls">Entendido</button></div>`);
+  $('#cls').onclick = closeModal;
+};
 
 /* ---------- Eventos generales ---------- */
 $('#main').addEventListener('click', e => {
